@@ -1,0 +1,16 @@
+{
+  "name": "whenrufree-server",
+  "version": "1.0.0",
+  "description": "Optional thin backend for When R U Free: token swap for Microsoft Graph + shared overlap computation. The Flutter app works fully without it (local-first + Firestore).",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  }
+}

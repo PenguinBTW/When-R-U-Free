@@ -156,10 +156,10 @@ app.*.symbols
 !/dev/ci/**/Gemfile.lock
 !.vscode/settings.json
 
-# Monorepo
-.cipd
-.gclient
-.gclient_entries
-.python-version
-.gclient_previous_custom_vars
-.gclient_previous_sync_commits
+# App secrets / local env (When R U Free additions)
+# NOTE: lib/firebase_options.dart is intentionally COMMITTED with blank
+# placeholders (local-first mode). Only ignore it after running
+# `flutterfire configure` with real keys, if you prefer.
+server/node_modules/
+server/.env
+.env
