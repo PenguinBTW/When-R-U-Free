@@ -17,6 +17,10 @@ class Friend {
   final List<Lesson> lessons;
   final bool included; // included in "who's free" comparisons
   final List<BusyBlock> busyBlocks; // one-off busy overrides
+  /// True when [lessons] are fabricated sample data (offline placeholder for
+  /// a raw friend-code add). Real data arrives via a WRF1- share import or,
+  /// once enabled, the cloud lookup — both reset this to false.
+  final bool demoData;
 
   const Friend({
     required this.id,
@@ -25,6 +29,7 @@ class Friend {
     this.lessons = const [],
     this.included = true,
     this.busyBlocks = const [],
+    this.demoData = false,
   });
 
   Friend copyWith({
@@ -33,6 +38,7 @@ class Friend {
     List<Lesson>? lessons,
     bool? included,
     List<BusyBlock>? busyBlocks,
+    bool? demoData,
   }) {
     return Friend(
       id: id,
@@ -41,6 +47,7 @@ class Friend {
       lessons: lessons ?? this.lessons,
       included: included ?? this.included,
       busyBlocks: busyBlocks ?? this.busyBlocks,
+      demoData: demoData ?? this.demoData,
     );
   }
 
@@ -57,6 +64,7 @@ class Friend {
         'lessons': lessons.map((l) => l.toJson()).toList(),
         'included': included,
         'busyBlocks': busyBlocks.map((b) => b.toJson()).toList(),
+        'demoData': demoData,
       };
 
   factory Friend.fromJson(Map<String, dynamic> json) => Friend(
@@ -72,5 +80,9 @@ class Friend {
             .whereType<Map>()
             .map((e) => BusyBlock.fromJson(Map<String, dynamic>.from(e)))
             .toList(),
+        // Old backups predate the flag: friends created from raw codes were
+        // always demo data, while share-imported ones set it explicitly.
+        demoData: json['demoData'] as bool? ??
+            ((json['id'] as String?)?.startsWith('demo-') ?? false),
       );
 }

@@ -10,6 +10,7 @@ import '../../services/notification_service.dart';
 import '../../utils/time_fmt.dart';
 import '../widgets/common.dart';
 import 'graph_import_screen.dart';
+import 'mode_choice_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -76,38 +77,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     .textTheme
                                     .titleMedium
                                     ?.copyWith(fontWeight: FontWeight.bold)),
-                            Text('Code ${store.profile.friendCode}'),
+                            Text(store.appMode == AppMode.sync
+                                ? 'Sync mode'
+                                : 'Offline mode — private to this phone'),
                           ],
                         ),
                       ),
                       TextButton(
-                        onPressed: () async {
-                          final ok = await showDialog<bool>(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text('New friend code?'),
-                              content: const Text(
-                                  'Friends using your old code will need the new one.'),
-                              actions: [
-                                TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(false),
-                                    child: const Text('Cancel')),
-                                FilledButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(true),
-                                    child: const Text('Generate')),
-                              ],
-                            ),
-                          );
-                          if (ok == true && context.mounted) {
-                            await store.regenerateCode();
-                            if (context.mounted) {
-                              showInfo(context, 'New code generated.');
-                            }
-                          }
-                        },
-                        child: const Text('New code'),
+                        onPressed: () => showSyncComingSoon(context),
+                        child: Text(store.appMode == AppMode.sync
+                            ? 'Sync info'
+                            : 'Try Sync'),
                       ),
                     ],
                   ),
@@ -318,14 +298,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
+          SectionTitle('Developer'),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(Icons.bug_report_outlined,
+                      color: Theme.of(context).colorScheme.primary),
+                  title: const Text('Add 5 demo friends'),
+                  subtitle: const Text(
+                      'Jess, Tim, Ava, Leo + Mia with sample timetables, for testing gaps. Skips names you already have.'),
+                  trailing: FilledButton.tonal(
+                    onPressed: () async {
+                      final added = await store.addDemoFriends();
+                      if (context.mounted) {
+                        showInfo(context,
+                            added == 0
+                                ? 'Demo friends already here.'
+                                : 'Added $added demo friend${added == 1 ? '' : 's'}.');
+                      }
+                    },
+                    child: const Text('Add'),
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.person_remove_outlined),
+                  title: const Text('Remove demo friends'),
+                  subtitle: const Text(
+                      'Clears all sample-timetable friends.'),
+                  trailing: FilledButton.tonal(
+                    onPressed: () async {
+                      final removed =
+                          await store.removeDemoFriends();
+                      if (context.mounted) {
+                        showInfo(context,
+                            removed == 0
+                                ? 'No demo friends to remove.'
+                                : 'Removed $removed demo friend${removed == 1 ? '' : 's'}.');
+                      }
+                    },
+                    child: const Text('Clear'),
+                  ),
+                ),
+              ],
+            ),
+          ),
           SectionTitle('About'),
           const Card(
             child: Padding(
               padding: EdgeInsets.all(16),
               child: Text(
                 'When R U Free — find when friends between lessons are free.\n\n'
-                'MVP: manual timetable entry, friend codes, mutual-break comparison.\n'
-                'Roadmap: Firebase sharing, Microsoft 365 auto-sync.\n\n'
+                'Offline mode: manual + Microsoft 365 timetable entry, QR sharing, mutual-break comparison.\n'
+                'Roadmap: cloud sync with automatic friend updates.\n\n'
                 'Source-available under the Vio License.',
               ),
             ),

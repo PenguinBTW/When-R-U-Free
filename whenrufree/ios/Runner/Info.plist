@@ -45,6 +45,8 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Scan a friend's timetable QR code to compare breaks.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

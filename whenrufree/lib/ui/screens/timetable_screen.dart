@@ -98,7 +98,7 @@ class _TimetableScreenState extends State<TimetableScreen>
                   final ok = await showDialog<bool>(
                     context: context,
                     builder: (_) => AlertDialog(
-                      title: const Text('Delete all lessons?'),
+                      title: const Text('Delete all events?'),
                       content: const Text(
                           'This removes your whole timetable. Friends are kept.'),
                       actions: [
@@ -146,8 +146,8 @@ class _TimetableScreenState extends State<TimetableScreen>
                   icon: Icons.free_breakfast_outlined,
                   title: 'Free all day ${weekdayShortName(day)}',
                   subtitle:
-                      'No lessons on ${weekdayName(day)}. Enjoy it — or add one with +.',
-                  buttonLabel: 'Add a lesson',
+                      'No events on ${weekdayName(day)}. Enjoy it — or add one with +.',
+                  buttonLabel: 'Add an event',
                   onButton: () => _add(store, day),
                 ),
               ),
@@ -197,7 +197,7 @@ class _TimetableScreenState extends State<TimetableScreen>
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _add(store, _tabs.index + 1),
         icon: const Icon(Icons.add),
-        label: const Text('Lesson'),
+        label: const Text('Event'),
       ),
     );
   }

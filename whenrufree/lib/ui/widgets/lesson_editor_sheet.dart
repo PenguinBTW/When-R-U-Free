@@ -26,7 +26,6 @@ class LessonEditorSheet extends StatefulWidget {
 
 class _LessonEditorSheetState extends State<LessonEditorSheet> {
   late final TextEditingController _subject;
-  late final TextEditingController _location;
   late int _day;
   late int _start;
   late int _end;
@@ -37,7 +36,6 @@ class _LessonEditorSheetState extends State<LessonEditorSheet> {
     super.initState();
     final e = widget.existing;
     _subject = TextEditingController(text: e?.subject ?? '');
-    _location = TextEditingController(text: e?.location ?? '');
     _day = e?.weekday ?? widget.initialDay;
     _start = e?.startMin ?? 9 * 60;
     _end = e?.endMin ?? 10 * 60;
@@ -46,7 +44,6 @@ class _LessonEditorSheetState extends State<LessonEditorSheet> {
   @override
   void dispose() {
     _subject.dispose();
-    _location.dispose();
     super.dispose();
   }
 
@@ -59,7 +56,6 @@ class _LessonEditorSheetState extends State<LessonEditorSheet> {
       weekday: _day,
       startMin: _start,
       endMin: _end,
-      location: _location.text,
     );
     final err = widget.onSave(lesson);
     if (err != null) {
@@ -104,7 +100,7 @@ class _LessonEditorSheetState extends State<LessonEditorSheet> {
               ),
               const SizedBox(height: 12),
               Text(
-                widget.existing == null ? 'Add lesson' : 'Edit lesson',
+                widget.existing == null ? 'Add event' : 'Edit event',
                 style: Theme.of(context)
                     .textTheme
                     .titleLarge
@@ -116,7 +112,7 @@ class _LessonEditorSheetState extends State<LessonEditorSheet> {
                 autofocus: widget.existing == null,
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
-                  labelText: 'Subject *',
+                  labelText: 'Event name *',
                   hintText: 'e.g. Maths',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.book_outlined),
@@ -147,7 +143,7 @@ class _LessonEditorSheetState extends State<LessonEditorSheet> {
                     child: OutlinedButton.icon(
                       onPressed: () async {
                         final m = await pickMinutes(
-                            context, _start, 'Lesson starts');
+                            context, _start, 'Starts at');
                         if (m != null) {
                           setState(() {
                             _start = m;
@@ -165,7 +161,7 @@ class _LessonEditorSheetState extends State<LessonEditorSheet> {
                     child: OutlinedButton.icon(
                       onPressed: () async {
                         final m =
-                            await pickMinutes(context, _end, 'Lesson ends');
+                            await pickMinutes(context, _end, 'Ends at');
                         if (m != null) setState(() => _end = m);
                       },
                       icon: const Icon(Icons.logout),
@@ -174,17 +170,6 @@ class _LessonEditorSheetState extends State<LessonEditorSheet> {
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _location,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Room (optional)',
-                  hintText: 'e.g. M2, Lab 1',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.room_outlined),
-                ),
               ),
               if (overlaps) ...[
                 const SizedBox(height: 8),
@@ -196,7 +181,7 @@ class _LessonEditorSheetState extends State<LessonEditorSheet> {
                     const SizedBox(width: 6),
                     const Expanded(
                       child: Text(
-                        'Overlaps another lesson on this day — saving is allowed, but check the times.',
+                        'Overlaps another event on this day — saving is allowed, but check the times.',
                         style: TextStyle(fontSize: 12),
                       ),
                     ),
@@ -214,7 +199,7 @@ class _LessonEditorSheetState extends State<LessonEditorSheet> {
               FilledButton(
                 onPressed: _save,
                 child: Text(widget.existing == null
-                    ? 'Add lesson'
+                    ? 'Add event'
                     : 'Save changes'),
               ),
             ],

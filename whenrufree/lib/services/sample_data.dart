@@ -79,6 +79,7 @@ Friend demoFriendForCode(String code, {int nameSalt = 0}) {
     displayName: '$name (${c.substring(0, 3)})',
     friendCode: c,
     lessons: sampleTimetable(seed: hash % 3),
+    demoData: true,
   );
 }
 
@@ -87,12 +88,14 @@ List<Friend> starterFriends() => [
           id: 'demo-AVA111',
           displayName: 'Ava',
           friendCode: 'AVA111',
-          lessons: sampleTimetable(seed: 1)),
+          lessons: sampleTimetable(seed: 1),
+          demoData: true),
       Friend(
           id: 'demo-LEO222',
           displayName: 'Leo',
           friendCode: 'LEO222',
-          lessons: sampleTimetable(seed: 2)),
+          lessons: sampleTimetable(seed: 2),
+          demoData: true),
     ];
 
 UserProfile starterProfile() =>

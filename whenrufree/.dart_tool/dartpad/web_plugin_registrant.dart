@@ -13,6 +13,7 @@ import 'package:firebase_core_web/firebase_core_web.dart';
 import 'package:flutter_local_notifications_web/flutter_local_notifications_web.dart';
 import 'package:flutter_secure_storage_web/flutter_secure_storage_web.dart';
 import 'package:flutter_timezone/flutter_timezone_web.dart';
+import 'package:mobile_scanner/src/web/mobile_scanner_web.dart';
 import 'package:share_plus/src/share_plus_web.dart';
 import 'package:shared_preferences_web/shared_preferences_web.dart';
 import 'package:url_launcher_web/url_launcher_web.dart';
@@ -27,6 +28,7 @@ void registerPlugins([final Registrar? pluginRegistrar]) {
   WebFlutterLocalNotificationsPlugin.registerWith(registrar);
   FlutterSecureStorageWeb.registerWith(registrar);
   FlutterTimezonePlugin.registerWith(registrar);
+  MobileScannerWeb.registerWith(registrar);
   SharePlusWebPlugin.registerWith(registrar);
   SharedPreferencesPlugin.registerWith(registrar);
   UrlLauncherPlugin.registerWith(registrar);

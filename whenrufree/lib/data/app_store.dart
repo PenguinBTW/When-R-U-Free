@@ -14,6 +14,13 @@ import '../services/timetable_share.dart';
 import '../models/free_slot.dart';
 import 'cloud/firestore_data_store.dart';
 
+/// Launch mode chosen on first run.
+///
+/// [undecided] shows the mode-choice screen. [offline] is the fully testable
+/// local mode (no codes, QR/text sharing). [sync] is the coming-soon cloud
+/// mode — currently routes back to offline after showing what's ready.
+enum AppMode { undecided, offline, sync }
+
 /// Central app state. Local-first: every mutation saves to SharedPreferences
 /// immediately; when the cloud backend is enabled it also pushes to Firestore
 /// (best-effort, never blocks the UI).
@@ -27,6 +34,7 @@ class AppStore extends ChangeNotifier {
   static const _kGapAlerts = 'wrf_gap_alerts_v1';
   static const _kReminderMin = 'wrf_reminder_min_v1';
   static const _kNotifPrompted = 'wrf_notif_prompted_v1';
+  static const _kAppMode = 'wrf_app_mode_v1';
 
   static const defaultWindowStart = 8 * 60;
   static const defaultWindowEnd = 18 * 60;
@@ -45,6 +53,8 @@ class AppStore extends ChangeNotifier {
   bool gapAlertsEnabled = true;
   int reminderMinBefore = 10;
   bool notifPrompted = false;
+  AppMode appMode = AppMode.undecided;
+  bool get isOffline => appMode != AppMode.sync;
 
   List<int> get weekdays => const [1, 2, 3, 4, 5];
 
@@ -121,6 +131,8 @@ class AppStore extends ChangeNotifier {
       gapAlertsEnabled = prefs.getBool(_kGapAlerts) ?? true;
       reminderMinBefore = prefs.getInt(_kReminderMin) ?? 10;
       notifPrompted = prefs.getBool(_kNotifPrompted) ?? false;
+      appMode = AppMode.values.asNameMap()[prefs.getString(_kAppMode)] ??
+          AppMode.undecided;
     } catch (e) {
       debugPrint('[store] load failed, using defaults: $e');
     }
@@ -144,6 +156,7 @@ class AppStore extends ChangeNotifier {
     await prefs.setBool(_kGapAlerts, gapAlertsEnabled);
     await prefs.setInt(_kReminderMin, reminderMinBefore);
     await prefs.setBool(_kNotifPrompted, notifPrompted);
+    await prefs.setString(_kAppMode, appMode.name);
     notifyListeners();
     if (gaps) {
       // Best-effort: never let notifications break the UI.
@@ -178,6 +191,11 @@ class AppStore extends ChangeNotifier {
   }
 
   // ---------- onboarding / profile ----------
+
+  Future<void> setAppMode(AppMode mode) async {
+    appMode = mode;
+    await _save();
+  }
 
   Future<void> completeOnboarding(String displayName) async {
     profile = profile.copyWith(displayName: displayName.trim());
@@ -310,6 +328,41 @@ class AppStore extends ChangeNotifier {
     await _save(gaps: true);
   }
 
+  // ---------- developer helpers (Settings → Developer) ----------
+
+  static const demoFriendNames = ['Jess', 'Tim', 'Ava', 'Leo', 'Mia'];
+
+  /// Adds up to 5 demo friends with rotating sample timetables for testing.
+  /// Skips names already present. Returns how many were added.
+  Future<int> addDemoFriends() async {
+    var added = 0;
+    for (var i = 0; i < demoFriendNames.length; i++) {
+      final name = demoFriendNames[i];
+      if (friends.any((f) =>
+          f.displayName.trim().toLowerCase() == name.toLowerCase())) {
+        continue;
+      }
+      friends.add(Friend(
+        id: 'demo-$name',
+        displayName: name,
+        friendCode: '',
+        lessons: sampleTimetable(seed: i % 3),
+        demoData: true,
+      ));
+      added++;
+    }
+    if (added > 0) await _save(gaps: true);
+    return added;
+  }
+
+  /// Removes all demo/sample friends. Returns how many were removed.
+  Future<int> removeDemoFriends() async {
+    final n = friends.where((f) => f.demoData).length;
+    friends.removeWhere((f) => f.demoData);
+    if (n > 0) await _save(gaps: true);
+    return n;
+  }
+
   Future<void> removeFriend(String id) async {
     friends.removeWhere((f) => f.id == id);
     await _save(gaps: true);
@@ -320,6 +373,123 @@ class AppStore extends ChangeNotifier {
     if (i == -1) return;
     friends[i] = friends[i].copyWith(included: !friends[i].included);
     await _save(gaps: true);
+  }
+
+  // ---------- offline friends (name-based, no codes) ----------
+
+  /// Adds a friend by name. Returns error string, or null on success.
+  /// Matching is case-insensitive on the trimmed name.
+  Future<String?> addFriendByName(String rawName) async {
+    final name = rawName.trim();
+    if (name.isEmpty) return 'Give your friend a name.';
+    if (name.length > 40) return 'Keep the name under 40 characters.';
+    if (friends.any((f) => f.displayName.trim().toLowerCase() == name.toLowerCase())) {
+      return 'You already have a friend called $name.';
+    }
+    friends.add(Friend(
+      id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+      displayName: name,
+      friendCode: '',
+    ));
+    await _save(gaps: true);
+    return null;
+  }
+
+  Future<String?> renameFriend(String id, String rawName) async {
+    final name = rawName.trim();
+    if (name.isEmpty) return 'Give your friend a name.';
+    if (friends.any((f) =>
+        f.id != id &&
+        f.displayName.trim().toLowerCase() == name.toLowerCase())) {
+      return 'You already have a friend called $name.';
+    }
+    final i = friends.indexWhere((f) => f.id == id);
+    if (i == -1) return 'Friend not found.';
+    friends[i] = friends[i].copyWith(displayName: name);
+    await _save(gaps: true);
+    return null;
+  }
+
+  Friend? friendById(String id) {
+    for (final f in friends) {
+      if (f.id == id) return f;
+    }
+    return null;
+  }
+
+  /// Returns error string, else null.
+  String? addFriendLesson(String friendId, Lesson lesson) {
+    final err = Lesson.validate(
+        subject: lesson.subject,
+        startMin: lesson.startMin,
+        endMin: lesson.endMin);
+    if (err != null) return err;
+    final i = friends.indexWhere((f) => f.id == friendId);
+    if (i == -1) return 'Friend not found.';
+    final updated = List<Lesson>.from(friends[i].lessons)..add(lesson);
+    updated.sort((a, b) {
+      if (a.weekday != b.weekday) return a.weekday.compareTo(b.weekday);
+      return a.startMin.compareTo(b.startMin);
+    });
+    friends[i] = friends[i].copyWith(lessons: updated, demoData: false);
+    _save(gaps: true);
+    return null;
+  }
+
+  /// Returns error string, else null.
+  String? updateFriendLesson(String friendId, Lesson updated) {
+    final err = Lesson.validate(
+        subject: updated.subject,
+        startMin: updated.startMin,
+        endMin: updated.endMin);
+    if (err != null) return err;
+    final i = friends.indexWhere((f) => f.id == friendId);
+    if (i == -1) return 'Friend not found.';
+    final li = friends[i].lessons.indexWhere((l) => l.id == updated.id);
+    if (li == -1) return 'Lesson not found.';
+    final lessons = List<Lesson>.from(friends[i].lessons)..[li] = updated;
+    lessons.sort((a, b) {
+      if (a.weekday != b.weekday) return a.weekday.compareTo(b.weekday);
+      return a.startMin.compareTo(b.startMin);
+    });
+    friends[i] = friends[i].copyWith(lessons: lessons, demoData: false);
+    _save(gaps: true);
+    return null;
+  }
+
+  Future<void> removeFriendLesson(String friendId, String lessonId) async {
+    final i = friends.indexWhere((f) => f.id == friendId);
+    if (i == -1) return;
+    final lessons =
+        friends[i].lessons.where((l) => l.id != lessonId).toList();
+    friends[i] = friends[i].copyWith(lessons: lessons);
+    await _save(gaps: true);
+  }
+
+  /// Applies a scanned/pasted [SharedPayload] in offline mode: matches an
+  /// existing friend by name (case-insensitive) or adds a new one.
+  /// Returns 'updated:$name' or 'added:$name'.
+  Future<String> applySharedPayloadOffline(SharedPayload p) async {
+    final name = p.displayName.trim().isEmpty ? 'Shared friend' : p.displayName.trim();
+    final i = friends.indexWhere(
+        (f) => f.displayName.trim().toLowerCase() == name.toLowerCase());
+    if (i != -1) {
+      friends[i] = friends[i].copyWith(
+        displayName: name,
+        lessons: p.lessons,
+        demoData: false,
+      );
+      await _save(gaps: true);
+      return 'updated:$name';
+    }
+    friends.add(Friend(
+      id: 'shared-${DateTime.now().microsecondsSinceEpoch}',
+      displayName: name,
+      friendCode: '',
+      lessons: p.lessons,
+    ));
+    await _save(gaps: true);
+    return 'added:$name';
   }
 
   // ---------- busy overrides ----------
@@ -381,23 +551,6 @@ class AppStore extends ChangeNotifier {
     );
   }
 
-  List<FreeSlot> mutualFreeToday(int weekday) {
-    return availability.mutualFreeOnDay(
-      timetables: timetables(),
-      weekday: weekday,
-      windowStartMin: windowStartMin,
-      windowEndMin: windowEndMin,
-    );
-  }
-
-  List<String> freeNow(int weekday, int timeMin) {
-    return availability.whoIsFreeAt(
-      timetables: timetables(),
-      weekday: weekday,
-      timeMin: timeMin,
-    );
-  }
-
   List<FreeSlot> bestSlots() {
     return availability.bestSlotsAcrossWeek(
       timetables: timetables(),
@@ -407,31 +560,19 @@ class AppStore extends ChangeNotifier {
     );
   }
 
-  // ---------- shared-timetable import ----------
-
-  /// Applies a scanned [SharedPayload]. Returns a short result code:
-  /// 'self' when it is the user's own code, 'friend-updated' when an
-  /// existing friend matched, 'friend-added' otherwise.
-  Future<String> applySharedPayload(SharedPayload p) async {
-    if (p.friendCode == profile.friendCode) return 'self';
-    final i = friends.indexWhere((f) => f.friendCode == p.friendCode);
-    if (i != -1) {
-      friends[i] = friends[i].copyWith(
-        displayName: p.displayName,
-        lessons: p.lessons,
-      );
-      await _save(gaps: true);
-      return 'friend-updated';
-    }
-    friends.add(Friend(
-      id: 'shared-${p.friendCode}',
-      displayName: p.displayName,
-      friendCode: p.friendCode,
-      lessons: p.lessons,
-    ));
-    await _save(gaps: true);
-    return 'friend-added';
+  /// Adaptive shared-gap blocks for one date (week view). Only times when
+  /// I'm free with at least one friend; [FreeSlot.whoFree] includes me.
+  List<FreeSlot> groupedBlocksOn(DateTime date) {
+    return availability.groupedFreeBlocks(
+      people: participants(),
+      myName: myLabel,
+      date: date,
+      windowStartMin: windowStartMin,
+      windowEndMin: windowEndMin,
+    );
   }
+
+  // ---------- shared-timetable import ----------
 
   /// Merges a shared payload into MY timetable, skipping exact duplicates.
   /// Returns the number of lessons added.
@@ -543,6 +684,7 @@ class AppStore extends ChangeNotifier {
     windowStartMin = defaultWindowStart;
     windowEndMin = defaultWindowEnd;
     onboarded = false;
+    appMode = AppMode.undecided;
     try {
       await NotificationService.instance.cancelAll();
     } catch (_) {

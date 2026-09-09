@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/app_store.dart';
 import 'screens/friends_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/mode_choice_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/timetable_screen.dart';
 import 'screens/week_screen.dart';
@@ -43,6 +44,7 @@ class _Gate extends StatelessWidget {
         body: Center(child: CircularProgressIndicator()),
       );
     }
+    if (store.appMode == AppMode.undecided) return const ModeChoiceScreen();
     if (!store.onboarded) return const OnboardingScreen();
     return const _Shell();
   }
@@ -161,7 +163,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Text(
-                    'Add your timetable once. Add friends by code. Instantly see every break you share between lessons.',
+                    'Add your timetable once. Add friends by name, scan their QR. Instantly see every break you share between lessons.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context)

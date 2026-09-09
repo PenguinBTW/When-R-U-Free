@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
-import '../../models/free_slot.dart';
 import '../../utils/time_fmt.dart';
 import '../widgets/common.dart';
 import '../widgets/detail_sheets.dart';
 
-/// Week heatmap: for the selected day, every 30-min row shows how many of the
-/// group are free, plus the exact mutual blocks below.
+/// Week view: for the selected day, one adaptive block per stable free
+/// group (e.g. a single "11:45 – 14:30 · Jess, Tim" instead of six rows).
+/// Only times when YOU are free with at least one friend are shown — your
+/// lessons and busy blocks simply leave no block behind.
 class WeekScreen extends StatefulWidget {
   const WeekScreen({super.key});
 
@@ -22,33 +24,19 @@ class _WeekScreenState extends State<WeekScreen> {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<AppStore>();
-    final timetables = store.timetables();
-    final people = timetables.keys.toList();
-    final total = people.length;
-    final participants = store.participants();
+    final myName = store.myLabel;
+    final people = store.timetables().keys.toList();
+    final friendCount = store.includedFriends.length;
 
     // The selected weekday mapped to its upcoming concrete date, so one-off
     // busy overrides apply here too.
     final now = DateTime.now();
     final todayOnly = DateTime(now.year, now.month, now.day);
-    var delta = (_day - todayOnly.weekday) % 7;
+    final delta = (_day - todayOnly.weekday) % 7;
     final selectedDate = todayOnly.add(Duration(days: delta));
 
-    // Heatmap buckets honour busy blocks on the selected date.
-    final bucketCount =
-        ((store.windowEndMin - store.windowStartMin) / 30).ceil();
-    final heat = List<int>.generate(bucketCount, (i) {
-      final mid = store.windowStartMin + i * 30 + 15;
-      if (mid >= store.windowEndMin) return 0;
-      return store.availability.whoIsFreeAtDate(
-          people: participants, date: selectedDate, timeMin: mid).length;
-    });
-    final mutual = store.availability.mutualFreeOnDate(
-      people: participants,
-      date: selectedDate,
-      windowStartMin: store.windowStartMin,
-      windowEndMin: store.windowEndMin,
-    );
+    final blocks = store.groupedBlocksOn(selectedDate);
+    final everyone = Set<String>.from(people);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Week view')),
@@ -72,135 +60,101 @@ class _WeekScreenState extends State<WeekScreen> {
               }),
             ),
           ),
-          const SizedBox(height: 8),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${weekdayName(_day)} — who\'s free when',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    total == 0
-                        ? 'Add lessons to get started.'
-                        : '$total in comparison (you + ${store.includedFriends.length} friends). Tap a row for detail.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 12),
-                  ...List.generate(heat.length, (i) {
-                    final start = store.windowStartMin + i * 30;
-                    final end = start + 30;
-                    final count = heat[i];
-                    final frac = total == 0 ? 0.0 : count / total;
-                    final allFree = total > 0 && count == total;
-                    // Who exactly is free mid-slot?
-                    final who = total == 0
-                        ? <String>[]
-                        : store.availability.whoIsFreeAtDate(
-                            people: participants,
-                            date: selectedDate,
-                            timeMin: start + 15);
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: total == 0
-                          ? null
-                          : () => showSlotDetail(
-                                context,
-                                FreeSlot(
-                                    weekday: _day,
-                                    startMin: start,
-                                    endMin: end,
-                                    whoFree: who),
-                                people,
-                                date: selectedDate,
-                                onMarkBusy: (b) async =>
-                                    store.addBusyBlock(b),
-                              ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 52,
-                              child: Text(formatMinutes(start),
-                                  style: Theme.of(context).textTheme.bodySmall),
-                            ),
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: LinearProgressIndicator(
-                                  value: frac,
-                                  minHeight: 18,
-                                  backgroundColor: Theme.of(context)
-                                      .colorScheme
-                                      .surfaceContainerHighest,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    allFree
-                                        ? Colors.green.shade500
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .primary
-                                            .withValues(alpha: 0.35 + frac * 0.65),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 36,
-                              child: Text('$count/$total',
-                                  textAlign: TextAlign.end,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                          fontWeight: allFree
-                                              ? FontWeight.bold
-                                              : null,
-                                          color: allFree
-                                              ? Colors.green.shade700
-                                              : null)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
+          SectionTitle(
+              'Free together · ${weekdayName(_day)}${delta == 0 ? ' (today)' : ''}'),
+          Text(
+            friendCount == 0
+                ? 'Add friends to compare — right now it\'s just you.'
+                : 'Only showing times you\'re free with mates (${DateFormat('EEE d MMM').format(selectedDate)}). Tap a block for detail.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
-          SectionTitle('All-free blocks on ${weekdayShortName(_day)}'),
-          if (mutual.isEmpty)
+          const SizedBox(height: 8),
+          if (blocks.isEmpty)
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
-                child: Text('No time when everyone is free this day.'),
+                child: Text(
+                    'Nothing where you\'re free with friends this day. Add events or friends — or pick another day.'),
               ),
             )
           else
-            ...mutual.map((s) => Card(
-                  color: Colors.green.shade50,
-                  child: ListTile(
-                    leading: const Icon(Icons.groups_outlined),
-                    title: Text(
-                        '${formatRange(s.startMin, s.endMin)} (${formatDuration(s.durationMin)})'),
-                    subtitle: Text(s.whoFree.join(', ')),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => showSlotDetail(context, s, people,
-                        date: selectedDate,
-                        onMarkBusy: (b) async =>
-                            store.addBusyBlock(b)),
+            ...blocks.map((s) {
+              final mates =
+                  s.whoFree.where((n) => n != myName).toList();
+              final allFree =
+                  Set<String>.from(s.whoFree).containsAll(everyone) &&
+                      everyone.length == s.whoFree.length;
+              return Card(
+                color: allFree ? gapHighlight(context) : null,
+                child: ListTile(
+                  leading: mates.isEmpty
+                      ? const Icon(Icons.groups_outlined)
+                      : _AvatarStack(
+                          mates: mates.take(3).toList(),
+                          extra: mates.length - mates.take(3).length),
+                  title: Text(
+                    '${formatRange(s.startMin, s.endMin)} (${formatDuration(s.durationMin)})',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                )),
+                  subtitle: Text(allFree
+                      ? 'Everyone 🎉'
+                      : mates.join(', ')),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => showSlotDetail(context, s, people,
+                      date: selectedDate,
+                      onMarkBusy: (b) async =>
+                          store.addBusyBlock(b)),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+/// Overlapping avatar circles for the friends in a block.
+class _AvatarStack extends StatelessWidget {
+  final List<String> mates;
+  final int extra;
+  const _AvatarStack({required this.mates, required this.extra});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: mates.length * 24.0 + (extra > 0 ? 30 : 8),
+      height: 36,
+      child: Stack(
+        children: [
+          for (var i = 0; i < mates.length; i++)
+            Positioned(
+              left: i * 24.0,
+              top: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: Theme.of(context).colorScheme.surface,
+                      width: 2),
+                ),
+                child: PersonAvatar(mates[i], radius: 16),
+              ),
+            ),
+          if (extra > 0)
+            Positioned(
+              left: mates.length * 24.0,
+              top: 0,
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest,
+                child: Text('+$extra',
+                    style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+            ),
         ],
       ),
     );

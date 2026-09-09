@@ -136,3 +136,23 @@ void showInfo(BuildContext context, String message) {
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(message)));
 }
+
+/// Readable text color on top of an arbitrary background.
+Color contrastOn(Color bg) =>
+    ThemeData.estimateBrightnessForColor(bg) == Brightness.dark
+        ? Colors.white
+        : Colors.black87;
+
+/// Card tint for "everyone's free" highlights — the hardcoded
+/// `Colors.green.shade50` this replaces is near-white and washes out in
+/// dark mode (light card + light text).
+Color gapHighlight(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1B5E20).withValues(alpha: 0.55)
+        : Colors.green.shade50;
+
+/// Chip background for "free" people — dark-safe version of green.shade100.
+Color freeChipBg(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark
+        ? Colors.green.shade900
+        : Colors.green.shade100;

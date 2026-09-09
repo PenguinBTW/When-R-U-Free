@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whenrufree/models/friend.dart';
 import 'package:whenrufree/models/lesson.dart';
+import 'package:whenrufree/services/sample_data.dart';
 import 'package:whenrufree/services/timetable_share.dart';
 
 List<Lesson> sample() => [
@@ -49,6 +51,28 @@ void main() {
           throwsA(isA<FormatException>()));
       expect(() => TimetableShare.decode('WRF1-!!!not-base64!!!'),
           throwsA(isA<FormatException>()));
+    });
+  });
+
+  group('demo-data flag', () {
+    test('sample friends are flagged, share imports are not', () {
+      final demo = demoFriendForCode('KQ7X2P');
+      expect(demo.demoData, isTrue);
+      final payload = TimetableShare.decode(TimetableShare.encode(
+          displayName: 'Real Mate',
+          friendCode: 'KQ7X2P',
+          college: '',
+          lessons: sample()));
+      // Applying a share payload clears the flag (see AppStore).
+      final updated = demo.copyWith(
+          displayName: payload.displayName,
+          lessons: payload.lessons,
+          demoData: false);
+      expect(updated.demoData, isFalse);
+      // Flag survives a save/load roundtrip.
+      final back = Friend.fromJson(updated.toJson());
+      expect(back.demoData, isFalse);
+      expect(Friend.fromJson(demo.toJson()).demoData, isTrue);
     });
   });
 }

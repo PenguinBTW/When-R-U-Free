@@ -19,13 +19,17 @@ Please read the [Vio License](./LICENSE.md) carefully before forking.
 
 ## What the app does (working now)
 
+**Launch: pick a mode**
+- **Sync (recommended, highlighted):** the vision — timetable changes update for all friends automatically, plus calendar auto-sync. The cloud side isn't built yet, so it opens an honest coming-soon sheet: Microsoft 365 import and QR sharing already work and are linked from there; automatic friend updates are gated until the Firebase backend exists. One tap continues offline.
+- **Offline (fully testable now):** complete privacy, everything stays on the phone. No accounts, no codes — friends are just names, timetables move by QR or text.
+
 **Timetable entry — two ways**
-- **Manual:** Mon–Sun tabs, add/edit/delete lessons (subject, day, start/end, room), overlap warnings, swipe-to-delete, sample loader.
+- **Manual:** Mon–Sun tabs, events with just a **name + time** (no descriptions, no clutter), overlap warnings, swipe-to-delete, sample loader. Adding "a timetable" always happens under a picked friend's name.
 - **Microsoft 365 import:** Settings → *Import from Microsoft 365* → sign in with Microsoft (read-only calendar access) → **pick a username** → review the week's classes with ticks → Import. Duplicates are skipped automatically. Works with a free Azure app registration (setup below); a demo preview mode lets you try the flow with no setup.
 
 **Find shared gaps**
-- **Home** — greeting, who's free right now, next all-free slot today, best meetups of the week (ranked), your lessons + busy overrides today.
-- **Week** — day picker + 30-minute heatmap (how many of the group are free per slot); tap any row for a per-person breakdown + "copy plan for group chat".
+- **Home** — greeting, friends-free-now chips (with "till HH:MM" per friend when 5 or fewer are free), next all-free slot today, best meetups of the week (ranked), your events + busy overrides today. You never appear as one of your own friends — counts and names are friends-only.
+- **Week** — day picker + adaptive blocks: one block per stable free group (e.g. a single "11:45 – 14:30 · Jess, Tim"). Only times when you're free with mates are shown; full-group blocks are highlighted. Dark-mode safe throughout.
 
 **Gap notifications** 🔔
 - First launch asks: *"Get pinged before shared breaks?"* — then you get a heads-up naming who else is free, X minutes before each shared gap (configurable 0–30 min, Settings → Gap alerts, with a test button).
@@ -34,8 +38,10 @@ Please read the [Vio License](./LICENSE.md) carefully before forking.
 **"I'm actually busy then"**
 - Any shared gap (Home, Week) has an *I'm actually busy then* button → creates a one-off busy override for that date. Overrides carve time out of gaps and notifications without touching your weekly timetable. Manage them via Timetable → ⛔ icon.
 
-**Share timetables offline**
-- Timetable → *Share my timetable* produces a `WRF1-…` text code for any chat app. Friends → *Import a shared timetable* pastes it and adds that friend with their **real** lessons (or merges into your own timetable if it's your code). No account, no cloud.
+**Share timetables offline — no codes, just QR or text**
+- Timetable → *Share* shows a **QR code** with the whole timetable encoded. Your mate points their camera at it (Friends → Scan QR) and they're in with real events.
+- **Can't scan?** One tap switches to a **share-text string** (as long as it needs to be) for any chat app — Friends → Paste code imports it, matching by name (updates that friend or adds them).
+- Friends without real events yet carry a clearly-labelled **SAMPLE** timetable until the genuine article arrives by scan, paste, or typing it in.
 
 **Storage: local-first, cloud-ready**
 - Everything persists on-device — no account, works offline.
@@ -50,9 +56,9 @@ Please read the [Vio License](./LICENSE.md) carefully before forking.
 cd whenrufree
 flutter pub get
 flutter run          # or: flutter run -d chrome / windows / <device>
-flutter test         # 29 tests (unit + widget)
+flutter test         # 44 tests (unit + widget)
 flutter analyze      # clean
-flutter build apk --debug   # verified building
+flutter build apk --release   # verified building (tester APK)
 ```
 
 ## Tech stack

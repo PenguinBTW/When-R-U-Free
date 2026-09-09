@@ -7,6 +7,7 @@ import '../../models/free_slot.dart';
 import '../../utils/time_fmt.dart';
 import '../widgets/common.dart';
 import '../widgets/detail_sheets.dart';
+import '../widgets/share_sheet.dart';
 
 class HomeScreen extends StatelessWidget {
   final void Function(int index) goTo;
@@ -22,7 +23,30 @@ class HomeScreen extends StatelessWidget {
     final people = timetables.keys.toList();
 
     // Date-aware: one-off busy overrides honoured.
-    final freeNow = store.freeNowAt(now);
+    // NOTE: you never appear as one of your own friends — chips, counts and
+    // name lists below are friends-only; your availability is implied.
+    final myName = store.myLabel;
+    final friendNames =
+        store.includedFriends.map((f) => f.displayName).toList();
+    final byName = {for (final p in store.participants()) p.name: p};
+    final freeNowAll = store.freeNowAt(now);
+    final freeFriends =
+        friendNames.where(freeNowAll.contains).toList();
+    // "till HH:MM" per free friend (their own free-until, not the group's).
+    final till = <String, int?>{};
+    for (final name in freeFriends) {
+      final p = byName[name];
+      till[name] = p == null
+          ? null
+          : store.availability.freeUntil(
+              lessons: p.lessons,
+              busy: p.busy,
+              date: today,
+              fromMin: nowMin,
+              windowEndMin: store.windowEndMin,
+            );
+    }
+    final showTill = freeFriends.length <= 5;
     final mutualToday = store.mutualFreeOnDate(today);
     FreeSlot? next;
     for (final s in mutualToday) {
@@ -47,10 +71,9 @@ class HomeScreen extends StatelessWidget {
         title: const Text('When R U Free'),
         actions: [
           IconButton(
-            tooltip: 'My friend code',
+            tooltip: 'Share my timetable',
             icon: const Icon(Icons.qr_code_2_outlined),
-            onPressed: () => showShareCode(
-                context, store.profile.displayName, store.profile.friendCode),
+            onPressed: () => showShareTimetable(context, store),
           ),
         ],
       ),
@@ -119,10 +142,11 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
 
-            // ---- Free-now card ----
+            // ---- Free-now card (friends only, dark-safe) ----
             Card(
-              color: freeNow.length == people.length && people.length > 1
-                  ? Colors.green.shade50
+              color: friendNames.isNotEmpty &&
+                      freeFriends.length == friendNames.length
+                  ? gapHighlight(context)
                   : null,
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -146,9 +170,14 @@ class HomeScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                freeNow.isEmpty
-                                    ? 'Everyone is in lessons'
-                                    : '${freeNow.length}/${people.length} free right now',
+                                friendNames.isEmpty
+                                    ? 'No friends yet'
+                                    : freeFriends.isEmpty
+                                        ? 'Everyone is in lessons'
+                                        : freeFriends.length ==
+                                                friendNames.length
+                                            ? "Everyone's free right now 🎉"
+                                            : '${freeFriends.length}/${friendNames.length} friends free right now',
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleMedium
@@ -165,22 +194,39 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (people.isNotEmpty) ...[
+                    if (friendNames.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: people.map((name) {
-                          final free = freeNow.contains(name);
-                          return Chip(
-                            avatar: PersonAvatar(name, radius: 12),
-                            label: Text(name),
-                            backgroundColor: free
-                                ? Colors.green.shade100
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                            side: BorderSide.none,
+                        children: friendNames.map((name) {
+                          final free = freeFriends.contains(name);
+                          final until = till[name];
+                          final label = free &&
+                                  showTill &&
+                                  until != null
+                              ? '$name (till ${formatMinutes(until)})'
+                              : name;
+                          final bg = free
+                              ? freeChipBg(context)
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest;
+                          // Capped width: very long names (+ till-times)
+                          // ellipsize instead of overflowing the wrap.
+                          return ConstrainedBox(
+                            constraints:
+                                const BoxConstraints(maxWidth: 220),
+                            child: Chip(
+                              avatar: PersonAvatar(name, radius: 12),
+                              label: Text(label,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: free
+                                      ? TextStyle(color: contrastOn(bg))
+                                      : null),
+                              backgroundColor: bg,
+                              side: BorderSide.none,
+                            ),
                           );
                         }).toList(),
                       ),
@@ -195,16 +241,16 @@ class HomeScreen extends StatelessWidget {
                 icon: Icons.calendar_month_outlined,
                 title: 'Add your timetable',
                 subtitle:
-                    'Add your lessons once, then invite friends to find every shared break automatically.',
-                buttonLabel: 'Add lessons',
+                    'Add your events once, then add friends to find every shared break automatically.',
+                buttonLabel: 'Add events',
                 onButton: () => goTo(2),
               )
             else if (store.friends.isEmpty)
               EmptyState(
                 icon: Icons.group_add_outlined,
-                title: 'Invite your friends',
+                title: 'Add your friends',
                 subtitle:
-                    'Share your friend code (${store.profile.friendCode}) so mates can add you — or add them by code.',
+                    'Add mates by name, then scan their timetable QR — shared gaps appear here.',
                 buttonLabel: 'Add friends',
                 onButton: () => goTo(3),
               ),
@@ -221,20 +267,24 @@ class HomeScreen extends StatelessWidget {
                 ),
               )
             else
-              ...mutualToday.map((s) => Card(
-                    child: ListTile(
-                      leading: Icon(Icons.watch_later_outlined,
-                          color: Theme.of(context).colorScheme.primary),
-                      title: Text(formatRange(s.startMin, s.endMin)),
-                      subtitle: Text(
-                          '${formatDuration(s.durationMin)} • ${s.whoFree.length} free'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => showSlotDetail(context, s, people,
-                          date: today,
-                          onMarkBusy: (b) async =>
-                              store.addBusyBlock(b)),
-                    ),
-                  )),
+              ...mutualToday.map((s) {
+                final mates =
+                    s.whoFree.where((n) => n != myName).length;
+                return Card(
+                  child: ListTile(
+                    leading: Icon(Icons.watch_later_outlined,
+                        color: Theme.of(context).colorScheme.primary),
+                    title: Text(formatRange(s.startMin, s.endMin)),
+                    subtitle: Text(
+                        '${formatDuration(s.durationMin)} • $mates friend${mates == 1 ? '' : 's'} free'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => showSlotDetail(context, s, people,
+                        date: today,
+                        onMarkBusy: (b) async =>
+                            store.addBusyBlock(b)),
+                  ),
+                );
+              }),
 
             SectionTitle('Best meetups this week',
                 actionLabel: 'All',
@@ -248,18 +298,22 @@ class HomeScreen extends StatelessWidget {
                 ),
               )
             else
-              ...best.map((s) => Card(
-                    child: ListTile(
-                      leading: PersonAvatar(
-                          s.whoFree.isEmpty ? '?' : s.whoFree.first),
-                      title: Text(
-                          '${weekdayShortName(s.weekday)} ${formatRange(s.startMin, s.endMin)}'),
-                      subtitle: Text(
-                          '${formatDuration(s.durationMin)} • ${s.whoFree.join(', ')}'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => showSlotDetail(context, s, people),
-                    ),
-                  )),
+              ...best.map((s) {
+                final mates =
+                    s.whoFree.where((n) => n != myName).toList();
+                return Card(
+                  child: ListTile(
+                    leading: PersonAvatar(
+                        mates.isEmpty ? '?' : mates.first),
+                    title: Text(
+                        '${weekdayShortName(s.weekday)} ${formatRange(s.startMin, s.endMin)}'),
+                    subtitle: Text(
+                        '${formatDuration(s.durationMin)} • ${mates.isEmpty ? s.whoFree.join(', ') : mates.join(', ')}'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => showSlotDetail(context, s, people),
+                  ),
+                );
+              }),
             SectionTitle(
                 'Your lessons today (${myLessonsToday.length + myBusyToday.length})'),
             ...myBusyToday.map((b) => Card(

@@ -195,29 +195,6 @@ class AvailabilityService {
     return free;
   }
 
-  /// For each day in [weekdays], count how many people are free in each
-  /// [slotMinutes] bucket starting at [windowStartMin]. Used for the heatmap.
-  Map<int, List<int>> freeCountHeatmap({
-    required Map<String, List<Lesson>> timetables,
-    required List<int> weekdays,
-    required int windowStartMin,
-    required int windowEndMin,
-    int slotMinutes = 30,
-  }) {
-    final result = <int, List<int>>{};
-    for (final day in weekdays) {
-      final buckets = <int>[];
-      for (var t = windowStartMin; t < windowEndMin; t += slotMinutes) {
-        final mid = t + slotMinutes ~/ 2;
-        buckets.add(whoIsFreeAt(
-                timetables: timetables, weekday: day, timeMin: mid)
-            .length);
-      }
-      result[day] = buckets;
-    }
-    return result;
-  }
-
   /// Ranked meetup suggestions across a week: longest shared breaks first,
   /// requiring at least [minPeople] free and [minDurationMin] length.
   List<FreeSlot> bestSlotsAcrossWeek({
@@ -416,6 +393,110 @@ class AvailabilityService {
       }
     }
     return out;
+  }
+
+  /// Adaptive shared-gap blocks for one date: maximal intervals over which
+  /// the exact free set stays constant. Only blocks containing [myName] plus
+  /// at least one other person are returned — times when you're busy never
+  /// show up. Powers the week view (e.g. one "11:45–14:30 · Jess, Tim"
+  /// block instead of six 30-min rows).
+  List<FreeSlot> groupedFreeBlocks({
+    required List<ParticipantTimetable> people,
+    required String myName,
+    required DateTime date,
+    required int windowStartMin,
+    required int windowEndMin,
+    int minDurationMin = 15,
+  }) {
+    if (people.isEmpty) return [];
+    final day = dateOnly(date);
+    final key = BusyBlock.keyOf(day);
+
+    bool busyAt(ParticipantTimetable p, int t) {
+      if (p.lessons.any((l) =>
+          l.weekday == day.weekday &&
+          t >= l.startMin &&
+          t < l.endMin)) {
+        return true;
+      }
+      return p.busy.any((b) =>
+          b.dateKey == key && t >= b.startMin && t < b.endMin);
+    }
+
+    // Every boundary where anyone's busy state can change.
+    final bounds = <int>{windowStartMin, windowEndMin};
+    for (final p in people) {
+      for (final l in p.lessons) {
+        if (l.weekday != day.weekday) continue;
+        if (l.endMin <= windowStartMin || l.startMin >= windowEndMin) {
+          continue;
+        }
+        bounds.add(l.startMin.clamp(windowStartMin, windowEndMin));
+        bounds.add(l.endMin.clamp(windowStartMin, windowEndMin));
+      }
+      for (final b in p.busy) {
+        if (b.dateKey != key) continue;
+        if (b.endMin <= windowStartMin || b.startMin >= windowEndMin) {
+          continue;
+        }
+        bounds.add(b.startMin.clamp(windowStartMin, windowEndMin));
+        bounds.add(b.endMin.clamp(windowStartMin, windowEndMin));
+      }
+    }
+    final sorted = bounds.toList()..sort();
+
+    final blocks = <FreeSlot>[];
+    for (var i = 0; i < sorted.length - 1; i++) {
+      final s = sorted[i], e = sorted[i + 1];
+      if (e <= s) continue;
+      final mid = s + (e - s) ~/ 2;
+      final free =
+          people.where((p) => !busyAt(p, mid)).map((p) => p.name).toList();
+      if (!free.contains(myName) || free.length < 2) continue;
+      if (blocks.isNotEmpty &&
+          blocks.last.endMin == s &&
+          _sameSet(blocks.last.whoFree, free)) {
+        blocks[blocks.length - 1] =
+            blocks.last.copyWith(endMin: e);
+      } else {
+        blocks.add(FreeSlot(
+            weekday: day.weekday, startMin: s, endMin: e, whoFree: free));
+      }
+    }
+    // Filter slivers only after merging, so a 2-min boundary slice can't
+    // split an otherwise solid block in two.
+    return blocks.where((b) => b.durationMin >= minDurationMin).toList();
+  }
+
+  /// End (minutes) of the free interval containing [fromMin] for one person
+  /// on [date], or null when busy at [fromMin] / outside the window.
+  int? freeUntil({
+    required List<Lesson> lessons,
+    required List<BusyBlock> busy,
+    required DateTime date,
+    required int fromMin,
+    required int windowEndMin,
+  }) {
+    if (fromMin >= windowEndMin) return null;
+    final day = dateOnly(date);
+    final key = BusyBlock.keyOf(day);
+    var nextChange = windowEndMin;
+    bool covers(int s, int e) => fromMin >= s && fromMin < e;
+    for (final l in lessons) {
+      if (l.weekday != day.weekday) continue;
+      if (covers(l.startMin, l.endMin)) return null;
+      if (l.startMin > fromMin && l.startMin < nextChange) {
+        nextChange = l.startMin;
+      }
+    }
+    for (final b in busy) {
+      if (b.dateKey != key) continue;
+      if (covers(b.startMin, b.endMin)) return null;
+      if (b.startMin > fromMin && b.startMin < nextChange) {
+        nextChange = b.startMin;
+      }
+    }
+    return min(nextChange, windowEndMin);
   }
 
   bool _sameSet(List<String> a, List<String> b) {

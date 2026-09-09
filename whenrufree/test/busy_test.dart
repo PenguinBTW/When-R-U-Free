@@ -156,6 +156,161 @@ void main() {
     });
   });
 
+  group('groupedFreeBlocks', () {
+    test('one block for a stable shared gap', () {
+      final mon = monday();
+      final blocks = svc.groupedFreeBlocks(
+        people: [
+          (name: 'Me', lessons: <Lesson>[], busy: <BusyBlock>[]),
+          (
+            name: 'Jess',
+            lessons: [lesson('Bio', 1, 9, 0, 10, 0)],
+            busy: <BusyBlock>[],
+          ),
+          (
+            name: 'Tim',
+            lessons: [lesson('Art', 1, 9, 0, 10, 0)],
+            busy: <BusyBlock>[],
+          ),
+        ],
+        myName: 'Me',
+        date: mon,
+        windowStartMin: 480,
+        windowEndMin: 720,
+      );
+      // 08:00–09:00 all free, 09:00–10:00 me-only (hidden), 10:00–12:00 all.
+      expect(blocks.length, 2);
+      expect(blocks.first.startMin, 480);
+      expect(blocks.first.endMin, 540);
+      expect(blocks.last.startMin, 600);
+      expect(blocks.last.endMin, 720);
+      expect(blocks.last.whoFree, containsAll(['Me', 'Jess', 'Tim']));
+    });
+
+    test('splits when the group changes mid-gap', () {
+      final mon = monday();
+      final blocks = svc.groupedFreeBlocks(
+        people: [
+          (name: 'Me', lessons: <Lesson>[], busy: <BusyBlock>[]),
+          (
+            name: 'Jess',
+            lessons: [lesson('Bio', 1, 12, 0, 13, 0)],
+            busy: <BusyBlock>[],
+          ),
+          (
+            name: 'Tim',
+            lessons: [lesson('Art', 1, 11, 0, 12, 0)],
+            busy: <BusyBlock>[],
+          ),
+        ],
+        myName: 'Me',
+        date: mon,
+        windowStartMin: 600,
+        windowEndMin: 780,
+      );
+      // [10-11 all] [11-12 Me+Jess] [12-13 Me+Tim]
+      expect(blocks.length, 3);
+      expect(blocks[1].whoFree, containsAll(['Me', 'Jess']));
+      expect(blocks[1].whoFree, isNot(contains('Tim')));
+      expect(blocks[1].startMin, 660);
+      expect(blocks[1].endMin, 720);
+      expect(blocks[2].whoFree, containsAll(['Me', 'Tim']));
+      expect(blocks[2].whoFree, isNot(contains('Jess')));
+    });
+
+    test('hides times when I am busy', () {
+      final mon = monday();
+      final blocks = svc.groupedFreeBlocks(
+        people: [
+          (
+            name: 'Me',
+            lessons: [lesson('Maths', 1, 8, 0, 18, 0)],
+            busy: <BusyBlock>[],
+          ),
+          (name: 'Jess', lessons: <Lesson>[], busy: <BusyBlock>[]),
+        ],
+        myName: 'Me',
+        date: mon,
+        windowStartMin: 480,
+        windowEndMin: 1080,
+      );
+      expect(blocks, isEmpty);
+    });
+
+    test('drops slivers below the minimum', () {
+      final mon = monday();
+      final blocks = svc.groupedFreeBlocks(
+        people: [
+          (name: 'Me', lessons: <Lesson>[], busy: <BusyBlock>[]),
+          (
+            name: 'Jess',
+            lessons: [lesson('Bio', 1, 10, 0, 10, 5)],
+            busy: <BusyBlock>[],
+          ),
+        ],
+        myName: 'Me',
+        date: mon,
+        windowStartMin: 600,
+        windowEndMin: 660,
+        minDurationMin: 15,
+      );
+      // 10:05–11:00 survives; 10:00–10:05 sliver dropped.
+      expect(blocks.length, 1);
+      expect(blocks.first.startMin, 605);
+    });
+  });
+
+  group('freeUntil', () {
+    test('end of current free stretch', () {
+      final mon = monday();
+      final until = svc.freeUntil(
+        lessons: [lesson('Maths', 1, 9, 0, 10, 0)],
+        busy: [],
+        date: mon,
+        fromMin: 500,
+        windowEndMin: 1080,
+      );
+      expect(until, 540);
+    });
+
+    test('null when busy now; window end when free till close', () {
+      final mon = monday();
+      expect(
+          svc.freeUntil(
+            lessons: [lesson('Maths', 1, 9, 0, 10, 0)],
+            busy: [],
+            date: mon,
+            fromMin: 550,
+            windowEndMin: 1080,
+          ),
+          isNull);
+      expect(
+          svc.freeUntil(
+            lessons: [],
+            busy: [],
+            date: mon,
+            fromMin: 1000,
+            windowEndMin: 1080,
+          ),
+          1080);
+    });
+
+    test('busy block ends the stretch early', () {
+      final mon = monday();
+      final until = svc.freeUntil(
+        lessons: [],
+        busy: [
+          BusyBlock.create(
+              title: 'X', date: mon, startMin: 800, endMin: 830),
+        ],
+        date: mon,
+        fromMin: 700,
+        windowEndMin: 1080,
+      );
+      expect(until, 800);
+    });
+  });
+
   group('BusyBlock model', () {
     test('json roundtrip + key format', () {
       final b = BusyBlock.create(

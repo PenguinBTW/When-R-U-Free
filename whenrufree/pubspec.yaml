@@ -31,6 +31,8 @@ dependencies:
   app_links: ^7.0.0
   crypto: ^3.0.7
   flutter_timezone: ^5.1.0
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^7.4.1
 
 dev_dependencies:
   flutter_test:

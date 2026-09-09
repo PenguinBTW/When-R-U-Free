@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/app_store.dart';
+import '../screens/scan_screen.dart';
 import '../widgets/common.dart';
-import '../widgets/detail_sheets.dart';
+import '../widgets/friend_detail_sheet.dart';
 import '../widgets/share_sheet.dart';
 
+/// Offline group management: friends are just names + timetables.
+/// No codes — timetables arrive by QR scan, pasted share text, or manual
+/// entry under the friend's name.
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
 
@@ -15,29 +18,70 @@ class FriendsScreen extends StatefulWidget {
 }
 
 class _FriendsScreenState extends State<FriendsScreen> {
-  final _codeController = TextEditingController();
+  final _nameController = TextEditingController();
   bool _adding = false;
   String? _error;
 
   @override
   void dispose() {
-    _codeController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
   Future<void> _add(AppStore store) async {
+    final name = _nameController.text.trim();
     setState(() {
       _adding = true;
       _error = null;
     });
-    final err = await store.addFriendByCode(_codeController.text);
+    final err = await store.addFriendByName(name);
     if (!mounted) return;
     setState(() {
       _adding = false;
       _error = err;
-      if (err == null) _codeController.clear();
+      if (err == null) _nameController.clear();
     });
-    if (err == null) showInfo(context, 'Friend added.');
+    if (err != null) return;
+    final friend = store.friends.firstWhere(
+        (f) => f.displayName.trim().toLowerCase() == name.toLowerCase());
+    if (!mounted) return;
+    final next = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Add $name\'s timetable?'),
+        content: const Text(
+            'Gaps only work with their events in. Scan their QR, paste their share text, or type it in.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop('later'),
+              child: const Text('Later')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop('scan'),
+              child: const Text('Scan QR')),
+          FilledButton(
+              onPressed: () => Navigator.of(context).pop('manual'),
+              child: const Text('Enter it')),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (next == 'manual') {
+      openFriendDetail(context, friend.id);
+    } else if (next == 'scan') {
+      final res = await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => const ScanScreen()));
+      if (res == 'paste' && mounted) {
+        showImportSharedCode(context, store);
+      }
+    }
+  }
+
+  Future<void> _scan(AppStore store) async {
+    final res = await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const ScanScreen()));
+    if (res == 'paste' && mounted) {
+      showImportSharedCode(context, store);
+    }
   }
 
   @override
@@ -48,49 +92,6 @@ class _FriendsScreenState extends State<FriendsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [
-          // My code card
-          Card(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Text('MY FRIEND CODE',
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelLarge
-                          ?.copyWith(letterSpacing: 2)),
-                  const SizedBox(height: 4),
-                  SelectableText(store.profile.friendCode,
-                      style: Theme.of(context)
-                          .textTheme
-                          .displaySmall
-                          ?.copyWith(
-                              fontWeight: FontWeight.bold, letterSpacing: 6)),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      FilledButton.tonal(
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(
-                              text: store.profile.friendCode));
-                          showInfo(context, 'Code copied.');
-                        },
-                        child: const Text('Copy'),
-                      ),
-                      const SizedBox(width: 12),
-                      FilledButton(
-                        onPressed: () => showShareCode(context,
-                            store.profile.displayName, store.profile.friendCode),
-                        child: const Text('Share'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
           SectionTitle('Add a friend'),
           Card(
             child: Padding(
@@ -102,12 +103,12 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     children: [
                       Expanded(
                         child: TextField(
-                          controller: _codeController,
-                          textCapitalization: TextCapitalization.characters,
-                          maxLength: 6,
+                          controller: _nameController,
+                          textCapitalization: TextCapitalization.words,
+                          maxLength: 40,
                           decoration: const InputDecoration(
-                            labelText: 'Friend code',
-                            hintText: 'e.g. KQ7X2P',
+                            labelText: "Friend's name",
+                            hintText: 'e.g. Ava',
                             border: OutlineInputBorder(),
                             counterText: '',
                             prefixIcon:
@@ -137,17 +138,30 @@ class _FriendsScreenState extends State<FriendsScreen> {
                                 Theme.of(context).colorScheme.error)),
                   ],
                   const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () =>
-                        showImportSharedCode(context, store),
-                    icon: const Icon(Icons.qr_code_2_outlined),
-                    label: const Text(
-                        'Import a shared timetable instead'),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _scan(store),
+                          icon:
+                              const Icon(Icons.qr_code_scanner_outlined),
+                          label: const Text('Scan QR'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () =>
+                              showImportSharedCode(context, store),
+                          icon: const Icon(Icons.paste_outlined),
+                          label: const Text('Paste code'),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Got a WRF1-… code in chat? Import it to add that friend with their REAL timetable. '
-                    'Any other 6-character code adds a demo friend until cloud lookup is enabled.',
+                    'Their timetable arrives by scanning their QR, pasting their share text — or type it in under their name. Nothing leaves this phone.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context)
                             .colorScheme
@@ -161,82 +175,88 @@ class _FriendsScreenState extends State<FriendsScreen> {
               actionLabel: store.friends.isEmpty ? 'Try demo friends' : null,
               onAction: () async {
                 await store.addStarterFriends();
-                if (context.mounted) showInfo(context, 'Demo friends added.');
+                if (context.mounted) {
+                  showInfo(context,
+                      'Demo friends added (sample timetables).');
+                }
               }),
           if (store.friends.isEmpty)
             EmptyState(
               icon: Icons.group_outlined,
               title: 'No friends yet',
               subtitle:
-                  'Add friends by code above, or load two demo friends to see how shared breaks work.',
+                  'Add friends by name above, or load demo friends to see how shared gaps work.',
               buttonLabel: 'Add demo friends',
               onButton: () => store.addStarterFriends(),
             )
-          else
+          else ...[
+            if (store.friends.any((f) => f.demoData))
+              Card(
+                color: Theme.of(context)
+                    .colorScheme
+                    .tertiaryContainer,
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text(
+                    'Friends marked SAMPLE use placeholder timetables — gaps with them are previews. Scan their QR or type in their real events.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
             ...store.friends.map((f) => Card(
                   child: ListTile(
                     leading: PersonAvatar(f.displayName, radius: 22),
-                    title: Text(f.displayName,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(
-                        '${f.friendCode} • ${f.lessons.length} lessons/week'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    title: Row(
                       children: [
-                        Switch(
-                          value: f.included,
-                          onChanged: (_) =>
-                              store.toggleFriendIncluded(f.id),
+                        Flexible(
+                          child: Text(f.displayName,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600)),
                         ),
-                        PopupMenuButton<String>(
-                          onSelected: (v) async {
-                            if (v == 'view') {
-                              showFriendTimetable(context, f);
-                            } else if (v == 'remove') {
-                              final ok = await showDialog<bool>(
-                                context: context,
-                                builder: (_) => AlertDialog(
-                                  title: Text('Remove ${f.displayName}?'),
-                                  content: const Text(
-                                      'You will stop comparing timetables with them.'),
-                                  actions: [
-                                    TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(false),
-                                        child: const Text('Cancel')),
-                                    FilledButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(true),
-                                        child: const Text('Remove')),
-                                  ],
-                                ),
-                              );
-                              if (ok == true) {
-                                await store.removeFriend(f.id);
-                              }
-                            }
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(
-                                value: 'view',
-                                child: Text('View timetable')),
-                            PopupMenuItem(
-                                value: 'remove', child: Text('Remove')),
-                          ],
-                        ),
+                        if (f.demoData) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .tertiaryContainer,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text('SAMPLE',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onTertiaryContainer)),
+                          ),
+                        ],
                       ],
                     ),
-                    onTap: () => showFriendTimetable(context, f),
+                    subtitle:
+                        Text('${f.lessons.length} events/week'),
+                    trailing: Switch(
+                      value: f.included,
+                      onChanged: (_) =>
+                          store.toggleFriendIncluded(f.id),
+                    ),
+                    onTap: () => openFriendDetail(context, f.id),
                   ),
                 )),
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'Tip: use the toggle to temporarily exclude someone from comparisons without removing them.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Tap a friend to edit their timetable. Use the toggle to pause comparisons without removing them.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

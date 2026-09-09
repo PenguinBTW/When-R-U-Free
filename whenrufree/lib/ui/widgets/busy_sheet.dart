@@ -26,10 +26,11 @@ class BusyBlocksSheet extends StatelessWidget {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             Text('Busy overrides',
                 style: Theme.of(context)
                     .textTheme
@@ -49,28 +50,27 @@ class BusyBlocksSheet extends StatelessWidget {
                 ),
               )
             else
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: upcoming.length,
-                  itemBuilder: (_, i) {
-                    final b = upcoming[i];
-                    return Card(
-                      child: ListTile(
-                        leading: Icon(Icons.event_busy_outlined,
-                            color: Theme.of(context).colorScheme.primary),
-                        title: Text(b.title),
-                        subtitle: Text(
-                            '${DateFormat('EEE d MMM').format(BusyBlock.dateOf(b.dateKey))} • ${formatRange(b.startMin, b.endMin)}'),
-                        trailing: IconButton(
-                          tooltip: 'Remove',
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () => store.removeBusyBlock(b.id),
-                        ),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: upcoming.length,
+                itemBuilder: (_, i) {
+                  final b = upcoming[i];
+                  return Card(
+                    child: ListTile(
+                      leading: Icon(Icons.event_busy_outlined,
+                          color: Theme.of(context).colorScheme.primary),
+                      title: Text(b.title),
+                      subtitle: Text(
+                          '${DateFormat('EEE d MMM').format(BusyBlock.dateOf(b.dateKey))} • ${formatRange(b.startMin, b.endMin)}'),
+                      trailing: IconButton(
+                        tooltip: 'Remove',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => store.removeBusyBlock(b.id),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
             const SizedBox(height: 8),
             FilledButton.icon(
@@ -78,7 +78,8 @@ class BusyBlocksSheet extends StatelessWidget {
               icon: const Icon(Icons.add),
               label: const Text('Add busy time'),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
