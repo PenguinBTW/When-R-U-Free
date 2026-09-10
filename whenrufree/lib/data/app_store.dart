@@ -12,6 +12,7 @@ import '../services/notification_service.dart';
 import '../services/sample_data.dart';
 import '../services/timetable_share.dart';
 import '../models/free_slot.dart';
+import '../utils/timeline.dart';
 import 'cloud/firestore_data_store.dart';
 
 /// Launch mode chosen on first run.
@@ -569,6 +570,28 @@ class AppStore extends ChangeNotifier {
       date: date,
       windowStartMin: windowStartMin,
       windowEndMin: windowEndMin,
+    );
+  }
+
+  /// Full proportional timeline for one date: free blocks interleaved with
+  /// busy-time skip dividers (see lib/utils/timeline.dart).
+  List<TimelineEntry> timelineOn(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    final key = BusyBlock.keyOf(day);
+    final me = lessons;
+    final myBusy = busyBlocks;
+    bool imBusy(int t) =>
+        me.any((l) =>
+            l.weekday == day.weekday &&
+            t >= l.startMin &&
+            t < l.endMin) ||
+        myBusy.any(
+            (b) => b.dateKey == key && t >= b.startMin && t < b.endMin);
+    return buildTimeline(
+      blocks: groupedBlocksOn(day),
+      windowStartMin: windowStartMin,
+      windowEndMin: windowEndMin,
+      imBusy: imBusy,
     );
   }
 

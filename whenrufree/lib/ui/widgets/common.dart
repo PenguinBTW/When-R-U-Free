@@ -104,12 +104,14 @@ class PersonAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = colorFor(name);
+    // Solid, bright avatars with guaranteed-contrast bold letters —
+    // readable on dark sheets, cards and light surfaces alike.
     return CircleAvatar(
       radius: radius,
-      backgroundColor: bg.withValues(alpha: 0.18),
+      backgroundColor: bg,
       child: Text(initials,
           style: TextStyle(
-              color: bg is MaterialColor ? bg.shade700 : bg,
+              color: contrastOn(bg),
               fontWeight: FontWeight.bold,
               fontSize: radius * 0.8)),
     );
@@ -150,6 +152,42 @@ Color gapHighlight(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFF1B5E20).withValues(alpha: 0.55)
         : Colors.green.shade50;
+
+// ---------- proportional timeline tokens (week view) ----------
+
+/// Page edge padding for the timeline.
+const double kTimelineMargin = 16.0;
+
+/// Card radius for free-time blocks.
+const double kTimelineCardRadius = 16.0;
+
+/// Minimum block height: small gaps stay tappable + readable.
+const double kTimelineMinHeight = 56.0;
+
+/// Minimum height for expanded (multi-row) blocks: the title + names rows
+/// cannot fit in 56dp, so 45–85 min blocks floor here instead of overflowing.
+const double kTimelineExpandedMinHeight = 112.0;
+
+/// Maximum block height: long gaps never monopolize the screen.
+const double kTimelineMaxHeight = 220.0;
+
+/// Height of busy-time skip dividers.
+const double kSkipDividerHeight = 30.0;
+
+/// Rich "everyone free" surface. White text on this passes WCAG AA in both
+/// brightness modes (unlike muddy dark greens or light greens with glow).
+const Color kEveryoneCardBg = Color(0xFF2E7D32);
+
+/// Minutes→pixels, responsive: ~1.25 at standard flagship height (800),
+/// shrinking on compact phones and growing on large screens.
+double timelinePxPerMin(BuildContext context) =>
+    (MediaQuery.heightOf(context) * 0.0016).clamp(0.9, 1.6);
+
+/// Proportional block height with comfort clamps.
+double timelineBlockHeight(int minutes, double pxPerMin,
+        {double minH = kTimelineMinHeight,
+        double maxH = kTimelineMaxHeight}) =>
+    (minutes * pxPerMin).clamp(minH, maxH);
 
 /// Chip background for "free" people — dark-safe version of green.shade100.
 Color freeChipBg(BuildContext context) =>

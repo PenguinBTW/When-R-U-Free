@@ -13,6 +13,7 @@ import 'package:whenrufree/ui/widgets/busy_sheet.dart';
 import 'package:whenrufree/ui/widgets/detail_sheets.dart';
 import 'package:whenrufree/ui/widgets/friend_detail_sheet.dart';
 import 'package:whenrufree/ui/widgets/share_sheet.dart';
+import 'package:whenrufree/utils/timeline.dart';
 
 /// Regression: with a full group (me + 5 demo friends) no screen or sheet
 /// may overflow. Every step asserts the framework recorded no error.
@@ -44,6 +45,27 @@ void main() {
     await tester.tap(find.text('Week'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    // Proportional timeline mirrors the pure builder output.
+    final entries = store.timelineOn(DateTime.now());
+    final hasSkip = entries.any((e) => e is SkipEntry);
+    final hasFree = entries.any((e) => e is FreeEntry);
+    if (hasSkip) {
+      expect(find.byType(Divider), findsWidgets);
+    }
+    if (hasFree) {
+      // Drill into the first free block (titles carry "(…)", dividers "·").
+      final blockTitle = find.byWidgetPredicate((w) =>
+          w is Text &&
+          (w.data?.contains('(') ?? false) &&
+          !(w.data?.contains('·') ?? false));
+      await tester.tap(blockTitle.first);
+      await tester.pumpAndSettle();
+      // Tally pill covers me + 5 friends.
+      expect(find.textContaining('/6 free'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      Navigator.of(tester.element(find.byType(Scaffold).first)).pop();
+      await tester.pumpAndSettle();
+    }
 
     await tester.tap(find.text('Friends'));
     await tester.pumpAndSettle();
