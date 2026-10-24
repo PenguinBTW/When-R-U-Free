@@ -158,8 +158,19 @@ app.*.symbols
 
 # App secrets / local env (When R U Free additions)
 # NOTE: lib/firebase_options.dart is intentionally COMMITTED with blank
-# placeholders (local-first mode). Only ignore it after running
-# `flutterfire configure` with real keys, if you prefer.
+# placeholders (local-first mode). If you configure production Firebase keys,
+# do not commit real keys to public repositories.
 server/node_modules/
-server/.env
-.env
+**/.env*
+*.env
+**/.dart_tool/
+**/.idea/
+
+# Firebase configuration & credential files
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Keystores & signing keys
+*.keystore
+*.jks
+key.properties

@@ -1,126 +1,134 @@
-# When-R-U-Free
-A simple app to find when friends at sixth form / college / uni are free to hang out between lessons — making scattered timetables easy to compare so shared breaks become study sessions (or actual breaks).
+# When-R-U-Free 🕒👥
 
-### This App is licensed using the Vio License:
-**What this means:**
-This is the source code for When R U Free. If you just want to use the app, please download the official version.
+> **Find when friends at sixth form, college, or university are free to hang out between lessons.**  
+> Turn scattered, confusing timetables into clear, shared breaks — study sessions, coffee runs, or actual downtime.
 
-**Downloads coming soon**
-
-⚠️ For Developers & Contributors: This project is Source Available.
-
-You may fork this repo to view the code, learn, and contribute fixes.
-
-You may not distribute compiled binaries (APKs/IPAs) of this app.
-
-Please read the [Vio License](./LICENSE.md) carefully before forking.
+[![Flutter](https://img.shields.io/badge/Flutter-3.38.5-02569B?logo=flutter)](https://flutter.dev)
+[![Dart](https://img.shields.io/badge/Dart-3.10.4-0175C2?logo=dart)](https://dart.dev)
+[![License: PolyForm Small Business](https://img.shields.io/badge/License-PolyForm_Small_Business_1.0.0-blue.svg)](LICENSE.md)
+[![Tests](https://img.shields.io/badge/Tests-58%20Passing-brightgreen.svg)](whenrufree/test)
+[![Analysis](https://img.shields.io/badge/Analysis-Clean-brightgreen.svg)](whenrufree)
 
 ---
 
-## What the app does (working now)
+## ⚡ What is When-R-U-Free?
 
-**Launch: pick a mode**
-- **Sync (recommended, highlighted):** the vision — timetable changes update for all friends automatically, plus calendar auto-sync. The cloud side isn't built yet, so it opens an honest coming-soon sheet: Microsoft 365 import and QR sharing already work and are linked from there; automatic friend updates are gated until the Firebase backend exists. One tap continues offline.
-- **Offline (fully testable now):** complete privacy, everything stays on the phone. No accounts, no codes — friends are just names, timetables move by QR or text.
+Comparing weekly timetables with friends is usually a mess of screenshots, group chat confusion, and missed free periods. **When R U Free** solves this with a **local-first, privacy-focused** app that calculates exactly when you and your friends share breaks.
 
-**Timetable entry — two ways**
-- **Manual:** Mon–Sun tabs, events with just a **name + time** (no descriptions, no clutter), overlap warnings, swipe-to-delete, sample loader. Adding "a timetable" always happens under a picked friend's name.
-- **Microsoft 365 import:** Settings → *Import from Microsoft 365* → sign in with Microsoft (read-only calendar access) → **pick a username** → review the week's classes with ticks → Import. Duplicates are skipped automatically. Works with a free Azure app registration (setup below); a demo preview mode lets you try the flow with no setup.
+- **100% Usable Offline:** No accounts, passwords, or cloud servers required. Your timetable stays on your phone.
+- **Zero-Friction Sharing:** Transfer timetables instantly using optical **QR codes** or portable **chat text codes**.
+- **Calendar Auto-Import:** Sign in with your school or university **Microsoft 365 / Outlook** account to pull your classes straight in with read-only PKCE security.
+- **Smart Group Availability:** Carves out busy periods and intersects your free time with friends in real-time.
 
-**Find shared gaps**
-- **Home** — greeting, friends-free-now chips (with "till HH:MM" per friend when 5 or fewer are free), next all-free slot today, best meetups of the week (ranked), your events + busy overrides today. You never appear as one of your own friends — counts and names are friends-only.
-- **Week** — day picker + adaptive blocks: one block per stable free group (e.g. a single "11:45 – 14:30 · Jess, Tim"). Only times when you're free with mates are shown; full-group blocks are highlighted. Dark-mode safe throughout.
+---
 
-**Gap notifications** 🔔
-- First launch asks: *"Get pinged before shared breaks?"* — then you get a heads-up naming who else is free, X minutes before each shared gap (configurable 0–30 min, Settings → Gap alerts, with a test button).
-- Fully on-device (no server needed); schedules rebuild automatically whenever timetables, friends, busy blocks, or settings change.
+## 🚀 Key Features (Ready & Working Today)
 
-**"I'm actually busy then"**
-- Any shared gap (Home, Week) has an *I'm actually busy then* button → creates a one-off busy override for that date. Overrides carve time out of gaps and notifications without touching your weekly timetable. Manage them via Timetable → ⛔ icon.
+| Feature | Description |
+| :--- | :--- |
+| **🏠 Live "Free Now" Dashboard** | Home screen with real-time status chips showing who is free right now and when their next lesson starts (*"Jess (till 14:30)"*), next all-free break, and ranked weekly meetups. |
+| **📅 Proportional Week Timeline** | Adaptive visual blocks that scale proportionally with duration; collapses non-relevant busy periods into compact skip dividers. |
+| **🔍 Shared Break Inspection** | Tap any break to see a member-by-member tally (free vs in class), a 1-tap **"Copy plan for group chat"** button, and an override trigger. |
+| **⛔ "I'm Actually Busy Then"** | One-off calendar date overrides that carve time out of shared gaps for doctor visits or errands without altering your recurring weekly timetable. |
+| **📲 Offline P2P Sharing** | Generate full timetable QR codes or Base64 text codes; scan using the built-in camera scanner with instant preview. |
+| **🎓 Microsoft 365 Import** | Direct OAuth 2.0 PKCE sign-in pulling weekly calendar events, automatically skipping all-day/free events, splitting overnight classes, and converting timezones. |
+| **🔔 On-Device Break Alerts** | Background notifications scheduled locally on your device 0–30 minutes before shared breaks, naming who else is free. |
+| **👥 Group Management** | Name-based friend rosters with individual include/exclude toggle switches, manual friend timetable editing, and demo friend presets. |
+| **💾 Backup & Restore** | Full local JSON backup export (clipboard & system share sheet) and one-tap restore. |
 
-**Share timetables offline — no codes, just QR or text**
-- Timetable → *Share* shows a **QR code** with the whole timetable encoded. Your mate points their camera at it (Friends → Scan QR) and they're in with real events.
-- **Can't scan?** One tap switches to a **share-text string** (as long as it needs to be) for any chat app — Friends → Paste code imports it, matching by name (updates that friend or adds them).
-- Friends without real events yet carry a clearly-labelled **SAMPLE** timetable until the genuine article arrives by scan, paste, or typing it in.
+---
 
-**Storage: local-first, cloud-ready**
-- Everything persists on-device — no account, works offline.
-- `lib/config/cloud_config.dart` + `lib/firebase_options.dart` (blank keys on purpose) + `lib/data/cloud/firestore_data_store.dart` (anonymous Auth + Firestore push/pull + friend-code lookup) are fully written and dormant. Paste keys → flip one flag → sync activates.
+## 📚 Documentation
 
-**Optional thin server** (`server/`, Express)
-- `GET /health`, `POST /api/overlap` (same algorithm in JS). The Graph token-swap endpoint is a stub kept for reference — the app uses direct PKCE (public client, no secret exists anywhere), so the server is not needed for Microsoft sync.
+Detailed technical documentation and guides are available in the [`docs/`](docs/README.md) directory:
 
-## Run it
+- 🏗️ **[Architecture & Design](docs/architecture.md):** Local-first philosophy, state management with Provider, persistence, and security model.
+- 📱 **[Features & User Guide](docs/features.md):** Detailed walkthrough of all 12 implemented features and UI flows.
+- 📐 **[Availability Algorithm](docs/availability-algorithm.md):** Technical explanation of interval carving, mutual intersection, grouped adaptive blocks, and ranking.
+- 🔑 **[Microsoft 365 Setup Guide](docs/microsoft-graph-setup.md):** How to register a free Azure client ID, configure permissions, and test using demo mode.
+- ☁️ **[Cloud Sync & Firebase Guide](docs/cloud-sync-setup.md):** Explanation of the dormant cloud sync layer, Firestore rules, and activation steps.
+- 🛠️ **[Development & Testing Guide](docs/development.md):** Setup instructions, test suite execution, building releases, and companion server info.
+- 📜 **[Changelog](CHANGELOG.md):** Comprehensive release notes and version history ([archive](docs/changelog/README.md)).
 
+---
+
+## 🏁 Quick Start
+
+### Prerequisites
+- [Flutter SDK](https://flutter.dev/docs/get-started/install) (`>= 3.10.4`)
+
+### Run the App
 ```bash
+# Navigate to the Flutter project
 cd whenrufree
+
+# Fetch dependencies
 flutter pub get
-flutter run          # or: flutter run -d chrome / windows / <device>
-flutter test         # 44 tests (unit + widget)
-flutter analyze      # clean
-flutter build apk --release   # verified building (tester APK)
+
+# Run on your default device, connected phone, or emulator
+flutter run
+
+# Or run specifically on desktop or browser:
+flutter run -d chrome
+flutter run -d windows
 ```
 
-## Tech stack
+### Run Tests & Analysis
+```bash
+# Run all 58 unit & widget tests
+flutter test
 
-Flutter (Material 3, Provider) · SharedPreferences (local-first) · flutter_local_notifications (gap alerts) · Microsoft Graph via hand-rolled OAuth PKCE (http + app_links + flutter_secure_storage — refresh token only, no-data-stored) · Firebase Auth + Firestore (wired, keys blank) · Node/Express stub (`server/`)
-
-## Project layout
-
-```
-whenrufree/lib/
-  main.dart                 bootstrap (+ dormant Firebase init, notification init)
-  firebase_options.dart     BLANK keys — paste real ones here
-  config/cloud_config.dart  kCloudBackendEnabled flag + Firestore schema docs
-  config/graph_config.dart  Microsoft client/redirect/scope config + Azure steps
-  models/                   lesson, busy_block, user_profile (+friend codes),
-                            friend, free_slot
-  services/                 availability_service (recurring + date-aware),
-                            notification_service, timetable_share,
-                            sample_data, graph/{graph_auth, graph_calendar}
-  data/                     app_store (state + persistence), cloud/firestore_data_store
-  ui/                       app shell + onboarding, 6 screens,
-                            editor/detail/busy/share sheets
-  utils/time_fmt.dart
-server/                     optional Express backend (overlap API + Graph stub)
-android|ios|macos           OAuth redirect scheme (whenrufree://auth) +
-                            notification permissions already applied
+# Run static analysis (clean, 0 warnings)
+flutter analyze
 ```
 
-## Microsoft 365 setup (free, ~5 min, once)
+---
 
-1. https://entra.microsoft.com → **App registrations** → New registration (personal MS account is fine).
-2. Supported account types: **"Accounts in any organizational directory and personal Microsoft accounts"**.
-3. **Authentication** → Add platform → **Mobile and desktop applications** → add redirect URI exactly: `whenrufree://auth`
-4. **API permissions** → Add → Microsoft Graph → **Delegated** → `Calendars.Read` (openid/profile/offline_access are default).
-5. Copy the **Application (client) ID** → in the app: Settings → *Import from Microsoft 365* → paste it → Save & continue → Connect Microsoft.
-6. That's it — sign in, pick a username, tick classes, Import.
+## 🛠️ Tech Stack
 
-Notes: Android/iOS/macOS redirect handling is already configured in this repo. On Windows/Linux the wizard offers a paste-the-redirect-URL fallback. To revoke: disconnect in the app (deletes the refresh key) and/or remove consent at https://myapps.microsoft.com.
+- **Framework:** [Flutter](https://flutter.dev) (Material 3, Dart 3)
+- **State & Storage:** [Provider](https://pub.dev/packages/provider) + [SharedPreferences](https://pub.dev/packages/shared_preferences) (local-first JSON persistence)
+- **Secure Storage:** [flutter_secure_storage](https://pub.dev/packages/flutter_secure_storage) (OAuth refresh token encryption)
+- **Scanning & Codes:** [mobile_scanner](https://pub.dev/packages/mobile_scanner) + [qr_flutter](https://pub.dev/packages/qr_flutter)
+- **Notifications:** [flutter_local_notifications](https://pub.dev/packages/flutter_local_notifications) + [timezone](https://pub.dev/packages/timezone)
+- **Calendar API:** Direct OAuth 2.0 PKCE via `http` + `app_links` to Microsoft Graph (`/v1.0/me/calendarview`)
+- **Cloud Backend (Dormant):** Firebase Auth (anonymous) + Cloud Firestore (ready for activation)
+- **Companion Server:** Node.js + Express (optional helper in `server/`)
 
-## ☁️ Action needed: free cloud database
+---
 
-**Please create one free Firebase project (Spark plan — no billing) so friend codes work across devices:**
+## 📂 Project Structure
 
-1. Go to https://console.firebase.google.com → Add project (any name, e.g. `when-r-u-free`), disable Gemini/Analytics if offered.
-2. **Authentication** → Sign-in method → enable **Anonymous**.
-3. **Firestore Database** → Create database → **production mode**, region closest to users (e.g. `eur3`) → then **Rules** tab, paste:
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{db}/documents {
-       match /users/{uid} {
-         allow read: if request.auth != null;
-         allow write: if request.auth != null && request.auth.uid == uid;
-         match /lessons/{id} {
-           allow read: if request.auth != null;
-           allow write: if request.auth != null && request.auth.uid == uid;
-         }
-       }
-     }
-   }
-   ```
-4. Project settings → **Your apps** → add **Android** (package `com.example.whenrufree` — or your real one), **iOS** if needed, and **Web** → download `google-services.json` / `GoogleService-Info.plist` + copy the web config values.
-5. Send me: the `google-services.json`, `GoogleService-Info.plist`, and the web `firebaseConfig` object (or just run `flutterfire configure` yourself and push the regenerated `lib/firebase_options.dart`).
+```text
+When-R-U-Free/
+├── docs/                       # Architecture, feature, setup, & algorithm guides
+│   ├── architecture.md
+│   ├── features.md
+│   ├── availability-algorithm.md
+│   ├── microsoft-graph-setup.md
+│   ├── cloud-sync-setup.md
+│   ├── development.md
+│   └── changelog/              # Archived version release notes
+├── server/                     # Optional Node/Express server (overlap API)
+├── whenrufree/                 # Primary Flutter Application
+│   ├── lib/
+│   │   ├── config/             # Cloud flags and Microsoft Graph settings
+│   │   ├── data/               # AppStore state management & Firestore data store
+│   │   ├── models/             # Lesson, Friend, BusyBlock, FreeSlot, UserProfile
+│   │   ├── services/           # Availability engine, notifications, sharing, Graph API
+│   │   ├── ui/                 # Screens, dialogs, bottom sheets, & custom widgets
+│   │   ├── utils/              # Timeline builder & time formatting helpers
+│   │   ├── firebase_options.dart # Blank template options (safe for public git)
+│   │   └── main.dart           # App bootstrap
+│   └── test/                   # Comprehensive unit & widget test suite (58 tests)
+├── CHANGELOG.md                # Project changelog
+└── LICENSE.md                  # PolyForm Small Business License 1.0.0
+```
 
-**I will then:** drop the files in, set `kCloudBackendEnabled = true`, and verify cross-device friend-code lookup. Nothing else changes — the sync code is already written and waiting.
+---
+
+## 📄 License
+
+This project is licensed under the **PolyForm Small Business License 1.0.0** — see the [LICENSE.md](LICENSE.md) file for details.
+
+> **Required Notice:** Copyright Vio (PenguinBTW).
